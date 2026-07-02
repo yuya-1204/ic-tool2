@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow,noarchive">
+<title>在宅IC Writer — 受け渡しパッケージ作成</title>
+<style>
+  :root{
+    --bg:#EEF0EC; --card:#FFFFFF; --ink:#232826; --muted:#6B746E; --line:#D9DDD6;
+    --pine:#2E5D52; --pine-d:#234B42; --pine-tint:#E7EFEC;
+    --rose:#B14A4A; --rose-tint:#FBF0EF;
+    --amber:#9A7321; --amber-tint:#FAF3E4;
+    --mincho:"Hiragino Mincho ProN","Yu Mincho","YuMincho","Noto Serif JP",serif;
+    --gothic:"Hiragino Kaku Gothic ProN","Hiragino Sans","Yu Gothic","Meiryo","Noto Sans JP",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{font-family:var(--gothic); color:var(--ink); background:var(--bg); line-height:1.75; font-size:15px; -webkit-text-size-adjust:100%}
+  .wrap{max-width:880px; margin:0 auto; padding:0 16px 110px}
+
+  /* topbar */
+  .topbar{position:sticky; top:0; z-index:20; background:rgba(238,240,236,.93); backdrop-filter:blur(6px); border-bottom:1px solid var(--line)}
+  .topbar-in{max-width:880px; margin:0 auto; padding:10px 16px; display:flex; align-items:baseline; gap:10px; flex-wrap:wrap}
+  .brand{font-family:var(--mincho); font-size:18px; font-weight:600}
+  .brand small{font-family:var(--gothic); font-weight:400; color:var(--muted); font-size:11px; margin-left:6px}
+
+  /* stepper */
+  .steps{display:flex; gap:6px; margin:18px 0 6px; counter-reset:s}
+  .step{flex:1; display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--muted); padding:6px 4px}
+  .step::before{counter-increment:s; content:counter(s); width:24px; height:24px; flex:none; border-radius:50%; border:1.5px solid var(--line); display:grid; place-items:center; font-size:12px; background:var(--card); font-weight:600}
+  .step.active{color:var(--ink); font-weight:600}
+  .step.active::before{border-color:var(--pine); background:var(--pine); color:#fff}
+  .step.done::before{border-color:var(--pine); background:var(--pine-tint); color:var(--pine-d); content:"✓"}
+  .step .lbl{white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  @media(max-width:640px){ .step .lbl{display:none} .step{flex:0 0 auto; padding:6px} .steps{gap:16px} }
+
+  /* "what changed" banner */
+  .didbar{display:flex; align-items:flex-start; gap:9px; background:var(--pine-tint); border:1px solid #CADED6; color:var(--pine-d); border-radius:10px; padding:10px 13px; margin:8px 0 14px; font-size:13.5px}
+  .didbar .ic{font-weight:700}
+
+  .panel{display:none}
+  .panel.show{display:block; animation:rise .22s ease}
+  @keyframes rise{from{opacity:0; transform:translateY(6px)} to{opacity:1; transform:none}}
+  @media(prefers-reduced-motion:reduce){ .panel.show{animation:none} }
+
+  .card{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; margin:12px 0}
+  h2.sec{font-family:var(--mincho); font-size:17px; margin:4px 0 4px; font-weight:600}
+  .sec-note{color:var(--muted); font-size:12.5px; margin:0 0 10px}
+  label.fld{display:block; margin:12px 0 4px; font-size:13px; color:var(--muted)}
+  input[type=text],input[type=number],textarea,select{width:100%; font-family:var(--gothic); font-size:15px; color:var(--ink); border:1px solid var(--line); border-radius:8px; padding:9px 11px; background:#fff}
+  textarea{resize:vertical; line-height:1.7}
+  input:focus,textarea:focus,select:focus,button:focus-visible{outline:2px solid var(--pine); outline-offset:1px}
+  .row2{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+  @media(max-width:540px){ .row2{grid-template-columns:1fr} }
+
+  .themes{display:flex; flex-wrap:wrap; gap:8px; margin-top:6px}
+  .themes label,.seg label{display:inline-flex; align-items:center; gap:6px; font-size:13px; padding:6px 11px; border:1px solid var(--line); border-radius:999px; background:#fff; cursor:pointer}
+  .themes input,.seg input{accent-color:var(--pine)}
+
+  .btn{font-family:var(--gothic); font-size:14px; border-radius:8px; padding:11px 18px; border:1px solid var(--pine); background:var(--pine); color:#fff; cursor:pointer; font-weight:600}
+  .btn:hover{background:var(--pine-d)}
+  .btn.ghost{background:#fff; color:var(--pine-d)}
+  .btn.ghost:hover{background:var(--pine-tint)}
+  .btn.sm{padding:7px 13px; font-size:13px}
+  .btn.tiny{padding:4px 10px; font-size:12px; border-color:var(--line); color:var(--muted); background:#fff; font-weight:500}
+  .btn.tiny:hover{border-color:var(--pine); color:var(--pine-d)}
+  .btn.big{padding:13px 20px; font-size:15px}
+  .btn[disabled]{opacity:.45; cursor:not-allowed}
+  .nav{display:flex; gap:10px; justify-content:space-between; margin-top:18px; flex-wrap:wrap}
+
+  /* de-id diff */
+  .diff{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:8px}
+  @media(max-width:680px){ .diff{grid-template-columns:1fr} }
+  .diff .col{border:1px solid var(--line); border-radius:10px; overflow:hidden; background:#fff}
+  .diff .col h3{margin:0; font-size:13px; padding:8px 12px; border-bottom:1px solid var(--line)}
+  .diff .col.before h3{background:var(--rose-tint); color:var(--rose)}
+  .diff .col.after h3{background:var(--pine-tint); color:var(--pine-d)}
+  .diff .body{padding:11px 12px; font-size:13px; line-height:1.85; white-space:pre-wrap; max-height:280px; overflow:auto}
+  mark.red{background:#F6D9D6; color:#8E2F2F; border-radius:4px; padding:0 3px; font-weight:600}
+  mark.grn{background:var(--pine-tint); color:var(--pine-d); border-radius:4px; padding:0 3px; font-weight:600}
+
+  .preset{display:flex; flex-wrap:wrap; gap:6px; margin:6px 0 2px}
+  .preset .pill{font-size:12px; padding:3px 9px; border-radius:999px; border:1px solid var(--line); background:#fff; color:var(--muted)}
+  .preset .pill b{color:var(--pine-d)}
+  .extra-row{display:grid; grid-template-columns:1fr 26px 1fr 34px; gap:8px; align-items:center; margin:6px 0}
+  .extra-row .arrow{text-align:center; color:var(--muted)}
+
+  .checkline{display:flex; align-items:flex-start; gap:9px; padding:9px 0; border-bottom:1px solid var(--line); font-size:14px}
+  .checkline:last-child{border-bottom:0}
+  .checkline input{margin-top:3px; width:18px; height:18px; accent-color:var(--pine); flex:none}
+
+  /* paste block */
+  .pasteblk{position:relative; background:#fff; border:1px solid var(--line); border-radius:10px}
+  .pasteblk .bar{display:flex; align-items:center; gap:8px; padding:8px 12px; border-bottom:1px solid var(--line); background:var(--pine-tint)}
+  .pasteblk .bar .ttl{font-size:12.5px; color:var(--pine-d); font-weight:600}
+  .pasteblk pre{margin:0; padding:13px; font-size:12.5px; line-height:1.7; white-space:pre-wrap; word-break:break-word; max-height:300px; overflow:auto; font-family:var(--gothic)}
+  .memo{background:var(--amber-tint); border:1px solid #E7D8B0; border-radius:10px; padding:12px 14px; margin:12px 0; font-size:13px}
+  .memo .tag{font-weight:600; color:var(--amber)}
+  .memo table{width:100%; border-collapse:collapse; margin-top:6px}
+  .memo td{padding:3px 6px; border-top:1px solid #E7D8B0; font-size:13px}
+
+  .disclaim{font-size:12px; color:var(--muted); border-top:1px solid var(--line); margin-top:16px; padding-top:12px}
+  .warnbox{border:1px solid #E6C4C2; background:var(--rose-tint); color:var(--rose); border-radius:8px; padding:11px 13px; margin:10px 0; font-size:13px}
+  .hint{font-size:12px; color:var(--muted); margin:6px 0 0}
+  .big-copy{display:flex; gap:10px; align-items:center; margin-top:12px; flex-wrap:wrap}
+
+  /* gate */
+  body.locked{overflow:hidden}
+  body.locked .topbar, body.locked .wrap{display:none}
+  #gate{position:fixed; inset:0; z-index:100; background:var(--bg); display:grid; place-items:center; padding:20px}
+  #gate.hidden{display:none}
+  .gate-card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:26px 22px; max-width:380px; width:100%; box-shadow:0 8px 30px rgba(35,40,38,.08)}
+  .gate-card .brand{display:block; margin-bottom:2px}
+  .gate-tag{font-size:12px; color:var(--pine-d); background:var(--pine-tint); border:1px solid #CADED6; border-radius:999px; padding:2px 10px; display:inline-block; margin:8px 0 14px}
+  .gate-card label{display:block; font-size:13px; color:var(--muted); margin-bottom:5px}
+  .gate-row{display:flex; gap:8px; margin-top:4px}
+  .gate-row input{flex:1}
+  .gate-err{color:var(--rose); font-size:12.5px; min-height:18px; margin:8px 0 0}
+  .gate-note{font-size:12px; color:var(--muted); border-top:1px solid var(--line); margin-top:16px; padding-top:12px; line-height:1.6}
+</style>
+</head>
+<body class="locked">
+
+<div id="gate">
+  <div class="gate-card">
+    <span class="brand">在宅IC Writer</span>
+    <span class="gate-tag">クリニック内ツール（試作）</span>
+    <label for="gatePw">閲覧パスワード</label>
+    <div class="gate-row">
+      <input type="password" id="gatePw" autocomplete="off" placeholder="パスワードを入力">
+      <button class="btn" id="gateBtn">開く</button>
+    </div>
+    <p class="gate-err" id="gateErr"></p>
+    <p class="gate-note">IC文字起こしを仮名化し、ChatGPTへ渡す内容を作るツールです。AIは診断・治療方針を判断しません。完成した文書は必ず医師が確認します。<b>実名は仮名化してから外部へ渡します。</b></p>
+  </div>
+</div>
+
+<div class="topbar">
+  <div class="topbar-in"><span class="brand">在宅IC Writer<small>受け渡しパッケージ作成</small></span></div>
+</div>
+
+<div class="wrap">
+  <div class="steps" id="steps">
+    <div class="step" data-step="1"><span class="lbl">文字起こしを貼り付け</span></div>
+    <div class="step" data-step="2"><span class="lbl">名前を仮名化</span></div>
+    <div class="step" data-step="3"><span class="lbl">ChatGPTへ渡す</span></div>
+    <div class="step" data-step="4"><span class="lbl">仕上げの確認</span></div>
+  </div>
+  <div class="didbar" id="didbar" style="display:none"><span class="ic">✓</span><span id="didtext"></span></div>
+
+  <!-- STEP 1 -->
+  <section class="panel" data-panel="1">
+    <div class="card">
+      <h2 class="sec">1. 文字起こしを貼り付け</h2>
+      <p class="sec-note">録音から作った文字起こしを、そのまま貼り付けてください。まだ名前は隠しません（次の画面で隠します）。</p>
+
+      <label class="fld">この説明のテーマ（あてはまるものを選ぶ・複数可）</label>
+      <div class="themes" id="themeBox"></div>
+
+      <div class="row2" style="margin-top:6px">
+        <div><label class="fld" for="age">患者さんの年齢</label><input type="number" id="age" placeholder="例：92"></div>
+        <div><label class="fld" for="icdate">説明した日（IC実施日）</label><input type="text" id="icdate" placeholder="例：2026-06-29"></div>
+      </div>
+
+      <label class="fld">話者分離（だれの発言か、文字起こしで分かれているか）</label>
+      <div class="seg" id="spkBox">
+        <label><input type="radio" name="spk" value="あり"> 分かれている（医師・家族など）</label>
+        <label><input type="radio" name="spk" value="なし" checked> 分かれていない（ひとまとまり）</label>
+      </div>
+      <p class="hint">分かれていなくても進めます。その場合、だれの発言かは「推定」として扱われます。</p>
+
+      <label class="fld" for="transcript">文字起こし全文</label>
+      <textarea id="transcript" rows="9" placeholder="ここに文字起こしを貼り付け"></textarea>
+
+      <div class="nav">
+        <button class="btn ghost sm" id="loadSample">サンプルを入れて試す</button>
+        <button class="btn" id="to2">次へ：名前を仮名化</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- STEP 2 -->
+  <section class="panel" data-panel="2">
+    <div class="card">
+      <h2 class="sec">2. 名前を仮名化する</h2>
+      <p class="sec-note">外部（ChatGPT）へ渡す前に、実名を記号に置き換えます。患者さんの氏名だけ入力してください。続柄（お母さん・長男など）は自動で置き換わります。</p>
+
+      <div class="row2">
+        <div><label class="fld" for="surname">患者さんの苗字（本文に出てくる表記）</label><input type="text" id="surname" placeholder="例：山岸"></div>
+        <div><label class="fld" for="given">患者さんの名前</label><input type="text" id="given" placeholder="例：花子（任意）"></div>
+      </div>
+      <p class="hint">入力した氏名は「患者A」に置き換わります。</p>
+
+      <label class="fld">自動で置き換わる続柄（あらかじめ設定済み）</label>
+      <div class="preset" id="presetView"></div>
+
+      <label class="fld" style="margin-top:14px">他にも隠したい言葉があれば追加（任意）</label>
+      <div id="extraRows"></div>
+      <button class="btn tiny" id="addExtra">＋ 置き換えを追加</button>
+
+      <h2 class="sec" style="margin-top:20px">置き換わった様子を確認</h2>
+      <p class="sec-note">左が元の文字起こし（赤＝実名/続柄）、右がChatGPTへ渡す形（緑＝記号）。赤がすべて緑に変わっていれば成功です。</p>
+      <div class="diff">
+        <div class="col before"><h3>元の文字起こし</h3><div class="body" id="beforeBody"></div></div>
+        <div class="col after"><h3>ChatGPTへ渡す形（実名なし）</h3><div class="body" id="afterBody"></div></div>
+      </div>
+      <div class="warnbox" id="leftover" style="display:none"></div>
+
+      <label class="checkline" style="margin-top:12px"><input type="checkbox" id="confirmDeid"><span>右側に実名が残っていないことを確認しました。</span></label>
+
+      <div class="nav">
+        <button class="btn ghost sm" id="back1">← 戻る</button>
+        <button class="btn" id="to3" disabled>次へ：ChatGPTへ渡す</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- STEP 3 -->
+  <section class="panel" data-panel="3">
+    <div class="card">
+      <h2 class="sec">3. ChatGPTへ渡す</h2>
+      <p class="sec-note">下の「コピー」を押して、ChatGPTの入力欄に貼り付け、送信してください。これだけで、要約（A）・終末期の治療希望書（B）・電子カルテ用要約（C）と、そのWord・PDFが作られます。</p>
+
+      <div class="pasteblk">
+        <div class="bar"><span class="ttl">ChatGPTに貼り付ける内容（実名は含まれていません）</span></div>
+        <pre id="pkgText"></pre>
+      </div>
+      <div class="big-copy">
+        <button class="btn big" data-copy="pkgText">この内容をコピー</button>
+        <span class="hint" id="copyState"></span>
+      </div>
+
+      <div class="memo">
+        <span class="tag">クリニック内メモ（ChatGPTには送りません）</span>
+        <div id="mapMemo"></div>
+        <p class="hint" style="margin-top:8px">仕上がった文書の氏名欄に実名を入れる時に使います。このメモは外部に渡していません。</p>
+      </div>
+
+      <p class="hint">推奨：ChatGPT側の設定で「チャット履歴とトレーニング」をオフにするか、一時チャットで行うと安心です。</p>
+
+      <div class="nav">
+        <button class="btn ghost sm" id="back2">← 戻る</button>
+        <button class="btn" id="to4">次へ：仕上げの確認</button>
+      </div>
+      <p class="disclaim">この内容には実名は含まれていません（患者A・家族（男）などの記号のみ）。AIは診断・治療方針・急変時対応方針を判断しません。出力は医師が確認・修正する前提の下書きです。</p>
+    </div>
+  </section>
+
+  <!-- STEP 4 -->
+  <section class="panel" data-panel="4">
+    <div class="card">
+      <h2 class="sec">4. 仕上げの確認</h2>
+      <p class="sec-note">ChatGPTが作った A・B・C を、医師が確認してから確定します。下を上から順に確認してください。</p>
+
+      <label class="checkline"><input type="checkbox"><span><b>医師が内容を確認</b>：A要約・B治療方針確認書・C電子カルテ要約が、説明した内容と合っているか。</span></label>
+      <label class="checkline"><input type="checkbox"><span><b>Bのチェックボックス</b>：救急搬送・心臓マッサージ・看取り場所・在宅酸素・胃ろう・中心静脈栄養・点滴（期間）・深夜呼吸停止時の翌朝連絡の ☑ が説明内容と合っているか確認・修正。「未確認」の行は医師が確認。</span></label>
+      <label class="checkline"><input type="checkbox"><span><b>DNARの注記</b>：「蘇生は控えるが、苦痛緩和は行う」という一文が残っているか。</span></label>
+      <label class="checkline"><input type="checkbox"><span><b>氏名を補う</b>：確認書の氏名欄に患者さんの実名を記入（署名時に手書きでも可）。上のクリニック内メモを参照。</span></label>
+      <label class="checkline"><input type="checkbox"><span><b>署名・押印</b>：医師・家族・同席者の欄に署名/押印。</span></label>
+      <label class="checkline"><input type="checkbox"><span><b>控えを3部</b>：家族・施設・クリニックそれぞれに控えを残す（Word/PDFを保存・印刷）。</span></label>
+      <label class="checkline"><input type="checkbox"><span><b>電子カルテへ</b>：C（約300字要約）を電子カルテに貼り付け。</span></label>
+
+      <div class="nav">
+        <button class="btn ghost sm" id="back3">← 戻る</button>
+        <button class="btn ghost sm" id="restart">最初からやり直す</button>
+      </div>
+      <p class="disclaim">完成後、文字起こし本文はこのツールに保存されません（ページを閉じると消えます）。</p>
+    </div>
+  </section>
+</div>
+
+<script>
+"use strict";
+
+/* ===== 閲覧パスワード（ソフトゲート）。ここを変えれば変更できます ===== */
+const DEMO_PASSWORD = "sophialemon2026";
+(function gate(){
+  const g=document.getElementById('gate'), pw=document.getElementById('gatePw'),
+        btn=document.getElementById('gateBtn'), err=document.getElementById('gateErr');
+  function open(){ if(pw.value===DEMO_PASSWORD){ g.classList.add('hidden'); document.body.classList.remove('locked'); }
+    else { err.textContent="パスワードが違います。"; pw.value=""; pw.focus(); } }
+  btn.addEventListener('click',open);
+  pw.addEventListener('keydown',e=>{ if(e.key==='Enter') open(); });
+  pw.focus();
+})();
+
+/* ===== 設定 ===== */
+const THEMES=["看取り","DNAR","救急搬送方針","在宅酸素","経口摂取困難","疼痛緩和","ACP"];
+const PRESET=[
+  {tag:"患者A", terms:["おとうさん","おかあさん","お父さん","お母さん","お父様","お母様","ご本人","本人","父","母"]},
+  {tag:"家族（男）", terms:["長男","次男","三男","息子","兄","弟"]},
+  {tag:"家族（女）", terms:["長女","次女","三女","娘","姉","妹"]}
+];
+
+const SAMPLE =
+`医師：Aさんは最近、食事量が減ってきており、体力も落ちています。今後、肺炎や脱水、心不全の悪化などをきっかけに急変する可能性があります。今日は、急変時にどこまでの治療を希望されるか確認したいと思います。
+長男：母は以前から、延命だけの治療はしたくないと言っていました。病院で管につながれて長く生きるより、できれば家で自然に過ごしたいという話は何度か聞いています。
+医師：心臓や呼吸が止まった場合の蘇生について説明します。Aさんの年齢や体力では、蘇生しても元の生活に戻る可能性は低く、苦痛を伴う可能性もあります。
+長男：そういう状態なら、蘇生は望まないです。母も望まないと思います。
+医師：DNARは治療をしないという意味ではありません。痛みや息苦しさを和らげる治療は行います。酸素や痛み止めなどを使って楽に過ごせるようにします。
+長男：胃ろうまでは望みません。点滴も、本人が楽になるならお願いしたいですが、延命だけが目的ならしなくていいと思います。妹にも話しておきます。`;
+
+/* ===== 状態 ===== */
+const state={ themes:["看取り","DNAR"], age:"", icdate:"", spk:"なし", transcript:"", surname:"", given:"", extra:[] };
+
+const $=s=>document.querySelector(s);
+const el=(t,c,x)=>{const e=document.createElement(t); if(c)e.className=c; if(x!=null)e.textContent=x; return e;};
+const esc=s=>(s||"").replace(/[&<>]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[m]));
+
+/* ===== ナビ ===== */
+function showDid(t){ const b=$("#didbar"); $("#didtext").textContent=t; b.style.display=t?"flex":"none"; }
+function go(step){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('show',+p.dataset.panel===step));
+  document.querySelectorAll('.step').forEach(s=>{const n=+s.dataset.step; s.classList.toggle('active',n===step); s.classList.toggle('done',n<step);});
+  if(step===2){ renderPreset(); renderExtra(); renderDiff(); }
+  if(step===3){ buildPackage(); }
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+/* ===== STEP1 ===== */
+function initThemes(){
+  const box=$("#themeBox");
+  THEMES.forEach(t=>{
+    const l=el("label"); const cb=document.createElement("input"); cb.type="checkbox"; cb.value=t;
+    if(state.themes.includes(t)) cb.checked=true;
+    cb.addEventListener('change',()=>{ state.themes=[...document.querySelectorAll('#themeBox input:checked')].map(c=>c.value); });
+    l.appendChild(cb); l.appendChild(document.createTextNode(t)); box.appendChild(l);
+  });
+}
+$("#loadSample").addEventListener('click',()=>{ $("#transcript").value=SAMPLE; $("#age").value="92"; $("#icdate").value="2026-06-29"; });
+$("#to2").addEventListener('click',()=>{
+  state.transcript=$("#transcript").value; state.age=$("#age").value.trim(); state.icdate=$("#icdate").value.trim();
+  state.spk=(document.querySelector('input[name=spk]:checked')||{}).value||"なし";
+  if(!state.transcript.trim()){ alert("文字起こしを入力するか、サンプルを入れてください。"); return; }
+  showDid("文字起こしを受け取りました。次に名前を仮名化します。");
+  go(2);
+});
+
+/* ===== STEP2 仮名化 ===== */
+function buildRules(){
+  const rules=[];
+  const pname=(state.surname+ (state.given||"")).trim();
+  if(pname) rules.push({from:pname,to:"患者A"});
+  if(state.surname.trim()) rules.push({from:state.surname.trim(),to:"患者A"});
+  if(state.given.trim()) rules.push({from:state.given.trim(),to:"患者A"});
+  PRESET.forEach(g=>g.terms.forEach(t=>rules.push({from:t,to:g.tag})));
+  state.extra.forEach(r=>{ if(r.from.trim()) rules.push({from:r.from.trim(),to:(r.to.trim()||"［伏字］")}); });
+  // 長い語から先に置換（母 が お母さん を壊さないように）
+  return rules.filter(r=>r.from).sort((a,b)=>b.from.length-a.from.length);
+}
+function deidentify(text){
+  let out=text; buildRules().forEach(r=>{ out=out.split(r.from).join(r.to); }); return out;
+}
+function renderPreset(){
+  const v=$("#presetView"); v.innerHTML="";
+  PRESET.forEach(g=>{
+    const p=el("span","pill"); p.innerHTML=esc(g.terms.slice(0,4).join("・"))+"… → <b>"+esc(g.tag)+"</b>"; v.appendChild(p);
+  });
+}
+function renderExtra(){
+  const wrap=$("#extraRows"); wrap.innerHTML="";
+  state.extra.forEach((r,i)=>{
+    const row=el("div","extra-row");
+    const a=document.createElement("input"); a.type="text"; a.value=r.from; a.placeholder="本文の言葉";
+    a.addEventListener('input',e=>{r.from=e.target.value; renderDiff();});
+    const ar=el("div","arrow","→");
+    const b=document.createElement("input"); b.type="text"; b.value=r.to; b.placeholder="記号（例：施設X）";
+    b.addEventListener('input',e=>{r.to=e.target.value; renderDiff();});
+    const del=el("button","btn tiny","×"); del.addEventListener('click',()=>{state.extra.splice(i,1); renderExtra(); renderDiff();});
+    row.append(a,ar,b,del); wrap.appendChild(row);
+  });
+}
+$("#addExtra").addEventListener('click',()=>{ state.extra.push({from:"",to:""}); renderExtra(); });
+["surname","given"].forEach(id=>{
+  // bound after DOM ready in init()
+});
+function renderDiff(){
+  state.surname=$("#surname").value; state.given=$("#given").value;
+  const rules=buildRules();
+  // before：実名/続柄を赤に
+  let before=state.transcript;
+  const SENT=String.fromCharCode(1); // sentinel
+  const found=[];
+  rules.forEach((r,i)=>{ if(before.includes(r.from)){ before=before.split(r.from).join(SENT+found.length+SENT); found.push(r.from); } });
+  before=esc(before);
+  found.forEach((f,i)=>{ before=before.split(SENT+i+SENT).join('<mark class="red">'+esc(f)+'</mark>'); });
+  $("#beforeBody").innerHTML=before || '<span style="color:var(--muted)">（文字起こしが空です）</span>';
+  // after：タグを緑に
+  let after=esc(deidentify(state.transcript));
+  const tags=["患者A","家族（男）","家族（女）",...state.extra.map(r=>r.to).filter(Boolean)];
+  [...new Set(tags)].forEach(t=>{ after=after.split(esc(t)).join('<mark class="grn">'+esc(t)+'</mark>'); });
+  $("#afterBody").innerHTML=after;
+  // 実名残りチェック（入力された氏名が after に残っていないか）
+  const names=[state.surname.trim(),state.given.trim(),(state.surname+state.given).trim()].filter(Boolean);
+  const leftover=names.filter(n=>deidentify(state.transcript).includes(n));
+  const lw=$("#leftover");
+  if(leftover.length){ lw.style.display="block"; lw.textContent="右側にまだ実名が残っています："+leftover.join("、")+"。苗字/名前の表記が本文と合っているか確認してください。"; }
+  else lw.style.display="none";
+}
+$("#confirmDeid").addEventListener('change',e=>{ $("#to3").disabled=!e.target.checked; });
+$("#back1").addEventListener('click',()=>{ showDid(""); go(1); });
+$("#to3").addEventListener('click',()=>{ showDid("仮名化が終わりました。ChatGPTへ渡す内容を作りました。"); go(3); });
+
+/* ===== STEP3 パッケージ ===== */
+function buildPackage(){
+  const deid=deidentify(state.transcript);
+  const theme=state.themes.join("・")||"（テーマ未選択）";
+  const txt=
+`あなたは訪問診療の記録補助AIです。次のルールに従い、IC（インフォームドコンセント）の文字起こしから文書を作成してください。
+
+【ルール】
+・文字起こしに無い内容は推測で補わない。不明な点は「未確認」と書く。
+・診断・治療方針・急変時対応方針を新たに決定・提案しない（抽出と整形のみ）。
+・「本人の明示意思」「本人の過去の発言からの推定」「家族の意向」「医師の説明」を区別して書く。
+・DNARは「何もしない」ではなく、心肺停止時の蘇生を控える一方で苦痛緩和は積極的に行う、と必ず明記する。
+・実名に置き換えない（患者A・家族（男）・家族（女）などの記号のまま書く）。
+・話者分離が「なし」の場合でも、可能な範囲で発言者を推定し、推定であることを明記する。
+
+【入力情報】
+本ICの主旨：終末期医療における治療方針（急変時対応・看取り等）の確認
+テーマ：${theme}
+患者：患者A（${state.age||"年齢未入力"}歳）
+IC実施日：${state.icdate||"未入力"}
+話者分離：${state.spk}
+文字起こし（仮名化済み）：
+"""
+${deid}
+"""
+
+【作成物】次のA・B・Cを回答本文に順番に記載し、さらにそれぞれを Word（.docx）と PDF のファイルでも出力してください。
+
+A. 要約
+　今回の説明・確認内容の要約。説明した病状/予後、本人の推定意思、家族の理解、同意事項、保留事項、家族からの質問と医師の回答、未確認事項を含める。終末期医療の治療方針ごとの希望（救急搬送・心臓マッサージ・看取り場所・在宅酸素・胃ろう・中心静脈栄養・通常の点滴の範囲と期間・深夜呼吸停止時の翌朝連絡・蘇生(DNAR) 等）も要点として含める。
+
+B. 終末期医療 治療方針 意向確認書（家族・施設・クリニックの3部の控えを想定）
+　この確認書（作成物B）の印刷時のタイトルは「終末期医療 治療方針 意向確認書　　　　　　（2026年7月 版）」とすること。A・B・C などの管理用記号は、出力する文書のタイトルや見出しには付けないこと（A・B・Cはこの指示書の中だけで使う整理用の記号です）。
+　本ICの主旨は「終末期医療における治療方針の確認」です。ご家族が必要最低限の事項を一目で確認できるよう、下記レイアウトのチェックボックスを埋めた確認書として作成し、その状態のまま Word と PDF で出力してください。説明的な長文は付けず、確認しやすさを優先します。
+　チェックの付け方：文字起こしから読み取れる希望に ☑、もう一方に ☐ を付ける。読み取れない・未確認の場合は両方 ☐ のままにし、その行の末尾に「未確認」と添える。これは下書きであり、最終確認は署名時に医師・家族が行う前提とする。下記の見出し・項目・補足文はそのまま使い、項目を増減しないこと。
+
+　急変時に
+　・救急搬送を希望　　　　　☐しない ／ ☐する
+　・心臓マッサージを希望　　☐しない ／ ☐する
+　・お看取り場所の希望　　　☐施設 ／ ☐病院 ／ ☐自宅
+
+　低酸素血症時に
+　・在宅酸素吸入を希望　　　☐しない ／ ☐する
+
+　食べられなくなった時に
+　・胃ろう（通常困難）を希望　　　　☐しない ／ ☐する
+　・中心静脈栄養（通常困難）を希望　☐しない ／ ☐する
+　・通常の点滴（脱水対応）を希望　　☐しない ／ ☐する
+　　（希望する場合　☐2〜3日程度まで ／ ☐7日程度まで）
+
+　深夜に呼吸停止に気付いた場合に
+　・深夜の運転や人手不足によるミスなどの危険性を考慮し、翌日朝のご連絡・お看取りを希望　☐する ／ ☐しない
+　　（深夜のお看取りの場合、葬儀業者が翌日日中の対応となることが増えたため、ご家族のご負担が増えてしまう可能性があります。また、当院の急患対応等の都合上、対応がどうしても難しい場合があります。）
+
+　※次の一文を必ず本書に記載：「DNARは『何もしない』ではありません。心肺停止時の蘇生は控える一方で、痛みや息苦しさをやわらげる治療は行います。」
+
+　末尾に、署名欄を下記のレイアウトのとおり設けること。各記入欄は「：」（コロン）の位置が縦にそろうよう、ラベルの前を全角スペースで字下げして揃える。各記入欄は手書きで記入できるよう行の高さを2行分とり、欄と欄のあいだに空行を1行入れる（PDF印刷後の手書き記入・Word追記を想定し、縦のゆとりを確保）。氏名・日付は空欄（記入用）でよい。下線（アンダースコア）はこの長さのまま出力すること。「㊞」の後の「続柄（　　　）」も、記載のある行のみ、そのまま出力すること。
+
+　　　　　　　説明日：________________________
+
+　　　ご本人（代筆）：_____________________________________________㊞
+
+　　　　医師／説明者：_____________________________________________㊞
+
+　　　　　　　　家族：_____________________________________________㊞ 続柄（　　　）
+
+　　　同席者（家族）：_____________________________________________㊞ 続柄（　　　）
+
+　　　同席者（施設）：_____________________________________________㊞
+
+同席者（クリニック）：_____________________________________________㊞
+
+　署名欄の下、文書のいちばん最後に、次の一文をそのまま記載すること：「＊ご意向の変更があれば、都度ご相談ください」
+
+C. 電子カルテ用要約（約300字）
+　冒頭にIC実施日と概要。他院への紹介状に転記しやすい簡潔な文章。診断名の断定はせず、説明・確認した終末期の治療方針（救急搬送・心臓マッサージ・看取り場所・在宅酸素・胃ろう・中心静脈栄養・通常の点滴・深夜呼吸停止時の翌朝連絡・蘇生(DNAR) 等）を中心に簡潔にまとめる。
+
+最後に、A・B・C それぞれを Word と PDF で出力してください。`;
+  $("#pkgText").textContent=txt;
+
+  // クリニック内メモ
+  const memo=$("#mapMemo"); memo.innerHTML="";
+  const tbl=document.createElement("table");
+  const real=(state.surname+ (state.given?(" "+state.given):"")).trim();
+  const rows=[["患者A", real||"（氏名未入力）"],["家族（男）","男性の続柄（長男・息子 等）"],["家族（女）","女性の続柄（長女・娘・妹 等）"]];
+  state.extra.forEach(r=>{ if(r.from.trim()) rows.push([r.to||"［伏字］", r.from]); });
+  rows.forEach(([k,v])=>{ const tr=document.createElement("tr");
+    const td1=el("td",null,k); td1.style.fontWeight="600"; td1.style.color="var(--pine-d)";
+    const td2=el("td",null,"= "+v); tr.append(td1,td2); tbl.appendChild(tr); });
+  memo.appendChild(tbl);
+}
+$("#back2").addEventListener('click',()=>{ showDid(""); go(2); });
+$("#to4").addEventListener('click',()=>{ showDid("仕上げの確認に進みました。"); go(4); });
+$("#back3").addEventListener('click',()=>go(3));
+$("#restart").addEventListener('click',()=>{ if(confirm("入力内容をすべて消して最初からやり直しますか？")) location.reload(); });
+
+/* ===== コピー ===== */
+document.querySelectorAll('[data-copy]').forEach(b=>{
+  b.addEventListener('click',()=>{
+    const t=$("#"+b.dataset.copy).textContent;
+    const done=()=>{ $("#copyState").textContent="コピーしました。ChatGPTに貼り付けてください。"; };
+    if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(t).then(done).catch(()=>fb(t,done)); } else fb(t,done);
+  });
+});
+function fb(t,cb){ const ta=document.createElement("textarea"); ta.value=t; document.body.appendChild(ta); ta.select(); try{document.execCommand('copy');}catch(e){} document.body.removeChild(ta); cb&&cb(); }
+
+/* ===== 起動 ===== */
+function init(){
+  initThemes();
+  $("#surname").addEventListener('input',renderDiff);
+  $("#given").addEventListener('input',renderDiff);
+  go(1);
+}
+init();
+</script>
+</body>
+</html>
